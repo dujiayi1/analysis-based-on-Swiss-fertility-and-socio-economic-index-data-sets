@@ -11,7 +11,7 @@ They state that variables Examination and Education are averages for 1887, 1888 
 ## Files Structure
 This repo contains three folders: inputs, outputs, and scripts. 
 
-- Input folder contains the Swiss data file, a dict.txt file which provides information on the survey data
+- Input folder contains the Swiss data file
 - Outputs folder contains the paper, R Markdown file of the paper, and references
 - Script folder contains the R file that reorganizes and cleans the dataset
 
