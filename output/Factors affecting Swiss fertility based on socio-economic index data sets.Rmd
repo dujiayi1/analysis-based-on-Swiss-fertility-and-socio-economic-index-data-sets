@@ -1,0 +1,490 @@
+---
+title: "Factors affecting Swiss fertility based on socio-economic index data sets"
+author: Jiayi Du
+thanks: "Code and data are available at: https://github.com/dujiayi1/analysis-based-on-Swiss-fertility-and-socio-economic-index-data-sets."
+date: "`r format(Sys.time(), '%d %B %Y')`"
+abstract: "Switzerland was in a period of population transition in 1888, and its fertility began to decline. In order to study whether the decline of fertility rate is affected by socio-economic indicators, this experiment used the dataset of fertility and socio-economic indicators of 47 provinces in Switzerland named Swiss to analysis. The mathematical statistical analysis and multiple linear regression had been carried out. The results indicated that the fertility was mainly related to the proportion of men engaged in agriculture, education, religious belief and the mortality of infants. \\par \\textbf{Keywords:} Swiss fertility, socio-economic, linear regression"
+output:
+  bookdown::pdf_document2
+toc: FALSE
+bibliography: references.bib
+---
+
+```{r,echo=FALSE,message=FALSE,include=FALSE,warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+library(lattice)
+library(PerformanceAnalytics)
+library(corrgram)
+library(gvlma)
+```
+# Introduction
+
+Different aspects of the Switzerland society has entered a relatively stable stage in late 19th century, such as its economy and politics. However, it does not mean that the Swiss haven’t been experiencing changes that drastically affect their lifestyles. Factors including social policies and technology advancements have greatly shift the Swiss’s ideology, values, and one of the most common change is their attitude towards fertility. Social development is closely related to social population structure and growth, and the development of social population will be affected by social and economic development. Fertility rate is a very important part of the population index, and it will also be affected by social and economic indicators.
+
+
+The Swiss data conducted a survey on the topic of fertility in 1888. By utilizing the data collected from the survey, this paper aims to explore the different possible factors that affect Swiss fertility, such as the proportion of men engaged in agriculture, education, religious belief and the mortality of infants and so on. The survey data is thoroughly discussed in the section of \@ref(data). In the sub-section \@ref(dataset-of-interest), we presented an overview of the original survey data, and explained our cleaned dataset that we'll for exploration. The methods used to collect the Swiss data as well as the strengths and weaknesses associated with these methods are outlined in the sub-sections, \@ref(strengths), and \@ref(weaknesses). Section \@ref(model) shows the general linear regression model which is considered in this paper.
+Section \@ref(results) presents a series of findings in relation to how the different indicators we picked have impacts on . In section \@ref(discussion), a discussion is made to elaborate on the implications of the findings we've got from the survey data. Furthermore, we talked about the possible reasons that lead to the effect of these factors on the decline of fertility.
+
+# Data
+
+## Dataset of interest
+
+The survey we utilized in this paper comes from Project “16P5” in the paper by Mosteller, F. and Tukey, J. W. (1977)  [@citeswiss]. The data collected are for 47 French-speaking provinces in Switzerland at about 1888. The dataset contains 6 variables, including Fertility, Agriculture, Examination, Education, Catholic and Infant.Mortality. Among them, the data of Examination and Education were the averages of 1887, 1888 and 1889. The data set is 47×6 in size, and all variables are scaled to [0, 100], where in the original, all but "Catholic" were scaled to [0, 1].
+
+This paper focused on investigating 6 of these variables: Fertility, Agriculture, Examination, Education, Catholic and Infant.Mortality. R [@citeR], and R packages "tidyverse" [@citetidyverse], "knitr" [@citeknitr], "dplyr" [@citedplyr], , "ggplot2"[@citeggplot2], "kableExtra" [@citekableExtra],"lattice"[@citelattice],"PerformanceAnalytics"[@citePerformanceAnalytics],"corrgram"[@citecorrgram] and "glvma"[@citegvlma] are utilized to conduct linear regression on the dataset.
+
+```{r dataextract,echo=FALSE}
+# load dataset
+data("swiss")
+df <- swiss
+df_cleaned<-df%>%
+  drop_na() %>%
+  slice(1:10) %>%
+  kable(
+    caption = "Extracting the first ten rows from the cleaned Swiss dataset",linesep = "", digits = 1,         booktabs=TRUE) %>%
+  kable_styling(latex_options = "HOLD_position", font_size = 5.7)
+df_cleaned
+write_csv(df,"swiss.csv")
+```
+
+Table \@ref(tab:dataextract) shows the first ten rows of the Swiss dataset of interest. Variable "Fertility" indicates the fertility rate in the 47 French-speaking provinces of Switzerland. Variable "Agriculture" represents the proportion of men engaged in Agriculture. Variable "Examination" means the proportion of conscripts who got high marks in the army Examination. Variable "Education" indicates the proportion of conscripts who had Education beyond primary school. Variable "Catholic" means the proportion of Catholicism and Infant.Mortality represents the rate of infant mortality.
+
+## Strengths
+
+The response rate of the survey is very high so that the data is relatively accurate. In addition, the value of each variable is scaled to proportion so that it's numeric and it's of benefit for us to conduct analysis.
+
+
+## Weaknesses
+
+The dataset contains only 47 pieces of data, so that it may lead to some errors in the results. Besides, some questions which appeared to be quite sensitive to many respondents may result in high non-response rates. For instance, respondents were generally unwilling to provide information about their examination.
+
+##  Summary Statistics
+
+In this part, I calculated some common statistics for each variable, including minimum, maximum, first quartile, median, third quartile, mean, variance, and standard deviation. The specific results are as follows:
+
+```{r echo=FALSE,include=FALSE}
+# data summary
+min<-c(min(df$Fertility),min(df$Agriculture),min(df$Examination),min(df$Education),min(df$Catholic),min(df$Infant.Mortality))
+min<-round(min,2)
+Q1<-c(quantile(df$Fertility,probs=0.25),quantile(df$Agriculture,probs=0.25),quantile(df$Examination,probs=0.25),quantile(df$Education,probs=0.25),quantile(df$Catholic,probs=0.25),quantile(df$Infant.Mortality,probs=0.25))
+Q1<-round(Q1,2)
+median<-c(median(df$Fertility),median(df$Agriculture),median(df$Examination),median(df$Education),median(df$Catholic),median(df$Infant.Mortality))
+median>-round(median,2)
+Q3<-c(quantile(df$Fertility,probs=0.75),quantile(df$Agriculture,probs=0.75),quantile(df$Examination,probs=0.75),quantile(df$Education,probs=0.75),quantile(df$Catholic,probs=0.75),quantile(df$Infant.Mortality,probs=0.75))
+Q3<-round(Q3,2)
+max<-c(max(df$Fertility),max(df$Agriculture),max(df$Examination),max(df$Education),max(df$Catholic),max(df$Infant.Mortality))
+max<-round(max,2)      
+mean<-c(mean(df$Fertility),mean(df$Agriculture),mean(df$Examination),mean(df$Education),mean(df$Catholic),mean(df$Infant.Mortality))
+mean<-round(mean,2)
+var<-c(var(df$Fertility),var(df$Agriculture),var(df$Examination),var(df$Education),var(df$Catholic),var(df$Infant.Mortality))
+var<-round(var,2)
+sd<-c(sd(df$Fertility),sd(df$Agriculture),sd(df$Examination),sd(df$Education),sd(df$Catholic),sd(df$Infant.Mortality))
+sd<-round(sd,2)
+variable<-c("Fertility","Agriculture","Examination","Education","Catholic","Infant.Mortality")
+table<-tibble(variable,min,Q1,median,Q3,max,mean,var,sd)
+
+```
+
+```{r,echo=FALSE}
+knitr::kable(table,caption = "Common statistics of each variable")
+```
+
+As can be seen from Table 2, Fertility indicates a minimum of 35, a first quartile of 64.7, a median of 70.4, a third quartile of 78.45, a maximum of 92.50, a mean of 70.40, a variance of 156.04, and a standard deviation of 12.49. The same goes for the description of other variables.
+
+
+## Distribution of each variable
+
+```{r,echo=FALSE,fig.cap="Boxplot of Swiss Data",fig.width=7, fig.height=3.5}
+boxplot(df)
+```
+
+From the Figure 1, the variables Fertility, Education, and Infant.Moritality all have outliers, which will affect the subsequent analysis to some extent, such as the accuracy of model fitting. Therefore, detection and processing of outliers are extremely important.
+
+```{r,echo=FALSE,fig.cap="histogram of each variable",fig.width=7, fig.height=3.5}
+# Histograms of each variables
+histogram(~Education+Catholic+Infant.Mortality+Fertility+Agriculture+Examination,data = df,xlab = "",col = "skyblue")
+
+```
+
+Then I made the histogram of each variable. From Figure 2, It's obvious that the histogram distribution of Fertility, Agriculture and Examination shows that there are more in the middle and less on both sides. The distribution of these three variables is close to normal distribution, but Agriculture has a high percentage in the interval [10, 20]. Therefore, Fertility and Examination are more consistent with normal distribution. Eucation and Infant.Mortality were close to skewed distribution, while Catholic was close to bimodal distribution.
+
+
+```{r,echo=FALSE,fig.cap="Density of each variable",fig.width=7, fig.height=3.5}
+# Density of each variables
+densityplot(~Education+Catholic+Infant.Mortality+Fertility+Agriculture+Examination, data = df,key = list(columns = 3,text = list(legend=c("Education","Catholic","Infant.Mortality","Fertility","Agriculture","Examination")),
+lines = list(lty = 1,col=c("blue","magenta","green4","red","orange","green"))),xlab = " ",plot.points = FALSE)
+
+```
+
+In order to observe the distribution of each variable further, we draw the density function curve of each variable, and the result is shown in Figure 3.
+
+The density function distribution curves of Fertility and Examination are most similar to the normal distribution.
+Secondly, Agriculture is also fairly consistent. And Infant.Mortality close to skewed distribution; Infant. Catholic has a bimodal distribution.
+
+
+
+```{r,echo=FALSE,fig.cap="Empirical distribution of each variable",fig.width=7, fig.height=5}
+# Empirical distribution function
+par(mfrow=c(3,2))
+fcx1 <- ecdf(df[,1])
+plot(fcx1, verticals = TRUE,do.points = TRUE,lwd = 2,col.points = "steelblue", cex=0.1,col.hor = "red3", col.vert = "bisque",main = "Emprical Distribution Function of Fertility")
+fcx2 <- ecdf(df[,2])
+plot(fcx2, verticals = TRUE,do.points = TRUE,lwd = 2,col.points = "steelblue", cex=0.1,col.hor = "red3", col.vert = "bisque",main = "Emprical Distribution Function of Agriculture")
+fcx3 <- ecdf(df[,3])
+plot(fcx3, verticals = TRUE,do.points = TRUE,lwd = 2,col.points = "steelblue", cex=0.1,col.hor = "red3", col.vert = "bisque",main = "Emprical Distribution Function of Examination")
+fcx4 <- ecdf(df[,4])
+plot(fcx4, verticals = TRUE,do.points = TRUE,lwd = 2,col.points = "steelblue", cex=0.1,col.hor = "red3", col.vert = "bisque",main = "Emprical Distribution Function of Education")
+fcx5 <- ecdf(df[,5])
+plot(fcx5, verticals = TRUE,do.points = TRUE,lwd = 2,col.points = "steelblue", cex=0.1,col.hor = "red3", col.vert = "bisque",main = "Emprical Distribution Function of Catholic")
+fcx6 <- ecdf(df[,6])
+plot(fcx6, verticals = TRUE,do.points = TRUE,lwd = 2,col.points = "steelblue", cex=0.1,col.hor = "red3", col.vert = "bisque",main = "Emprical Distribution Function of Infant.Mortality")
+```
+
+Figure 4 shows the empirical distribution function curve of each variable in the Swiss dataset. It can be seen from the results that the Fertility variable is closer to the normal distribution.
+
+## Relationships between the variables
+
+In this part, I will show the relationship between each variable through different methods.
+
+### Pairwise scatterplot
+
+First I performed the pairwise scatterplot of each variable.
+
+```{r,echo=FALSE,fig.cap="pairwise scatterplot of each variable",fig.width=7, fig.height=3.5}
+pairs(swiss, panel = panel.smooth, main = "Swiss Data",
+      col = 3 + (df$Catholic > 50))
+```
+
+From the results in Figure 5, Fertility is not found to have a strong linear relationship with the other five variables.
+
+### Pearson correlation significance test
+
+Pearson's correlation coefficient measures the linear correlation, and the formula is as follows:
+
+$$ r= \frac{N\Sigma x_iy_i-\Sigma x_i \Sigma y_i}{\sqrt{N\Sigma x_i^2-(\Sigma x_i)^2} \sqrt{N\Sigma y_i^2-(\Sigma y_i)^2}}    $$
+
+Generally, the correlation coefficient r between 0.8 and 1.0 indicates a strong correlation, 0.6 to 0.8 indicates a strong correlation, 0.4 to 0.6 indicates a moderate correlation, 0.2 to 0.4 indicates a weak correlation, and 0.0 to 0.2 indicates a very weak correlation or no correlation. When r=1, x and y are completely positively correlated; when r=-1, x and y are completely negatively correlated; when r=0, x and y are unrelated.
+
+Pearson correlation coefficient of each variable in Swiss data set was calculated, and the results were shown in Figure 6.
+
+```{r,echo=FALSE,fig.cap="Pearson Correlation of each variable",fig.width=7, fig.height=3.5}
+p <- cor(df)
+corrgram(p, order=TRUE, main = "Pearson Correlation of Swiss",
+lower.panel = panel.shade,upper.panel = panel.cor)
+```
+
+### Spearman correlation significance test
+
+Spearman's correlation coefficient is a non-parametric index to measure the dependence of two variables. The formula is as follows:
+
+$$  \rho= \frac{N\Sigma x_iy_i-\Sigma x_i \Sigma y_i}{\sqrt{N(\Sigma x_i-\bar{x})^2 (\Sigma y_i-\bar{y})^2}}     $$
+Spearman's correlation coefficient indicates the correlation direction between X (independent variable) and Y (dependent variable). When X increases, if Y tends to increase, Spearman's correlation coefficient is positive; if Y tends to decrease, Spearman's correlation coefficient is negative. When Spearman's correlation coefficient is 0, it indicates that Y has no tendency when X increases.
+
+Spearman correlation coefficient of each variable in Swiss data set was calculated, and the results were shown in Figure 7.
+
+```{r,echo=FALSE,fig.cap="Spearman correlation coefficient of each variable",fig.width=7, fig.height=3.5}
+s <- cor(df,method = "spearman")
+corrgram(s, order=TRUE, main = "Spearman Correlation of Swiss",
+lower.panel = panel.shade,upper.panel = panel.cor)
+```
+
+### Kendall correlation significance test
+
+The formula of Kendall correlation coefficient is as follows:
+
+$$  \tau=\frac{(number\space of\space concordant\space pairs)-(number\space of\space discordant\space pairs)}{n(n-1)/2}                                                          $$
+Kendall correlation coefficients of variables in the data set were calculated, and the results were shown in Figure 8.
+
+
+
+```{r,echo=FALSE,fig.cap="Kendall correlation coefficients of variables",fig.width=7, fig.height=3.5}
+k <- cor(df,method = "kendall")
+
+corrgram(k, order=TRUE, main = "Kendall Correlation of Swiss",
+lower.panel = panel.shade,upper.panel = panel.cor)
+
+```
+
+It can be seen from the results of figures above that the positive and negative correlations and corresponding correlations among variables in the Swiss data set have little difference. Pearson correlation coefficient is suitable for calculating continuous, normally distributed and linear data. Spearman's correlation coefficient is suitable for calculating the relationship between grade data. Kendall correlation coefficient is a rank correlation coefficient, and the calculated object is the classification variable. Based on the above reasons, Pearson correlation coefficient was finally selected as the index to measure the correlation between variables in this experiment. Figure 9 shows the correlation index of variables in the Swiss data set and whether they are significant.
+
+```{r,echo=FALSE,fig.cap="correlation index of variables",fig.width=7, fig.height=3.5}
+chart.Correlation(df,histogram = T,pch=19, main = "Pearson Correlation of Swiss")
+```
+
+As shown in Figure 9, Fertility is significantly correlated with the other five variables, especially Examination and Education. Infant.Mortality showed a weak negative correlation with Agriculture, Examination and Education, but a weak positive correlation with Catholic. This correlation result indicates that all variables in the Swiss dataset are significantly correlated with Fertility, and therefore the relationship between Fertility and the other five variables can be further analyzed by regression analysis.
+
+# Model
+
+In this paper, I considered the multiple linear regression model to conduct analysis. The basic formula of the model is as follows:
+
+$$  y=\beta_0+\beta_1x_1+\beta_2x_2+\cdots+\beta_nx_n+\epsilon                                                 $$
+
+Where y is the response variable, $x_i,i=1,2,\cdots,n$ is the indicator, $\beta_i,i=1,2,\cdots,n$ is the regression parameter, and $\epsilon$ is the residual.
+
+Firstly, mathematical model definition is required for the selected multivariate data, followed by parameter estimation. Then significance test, residual analysis and outlier detection are carried out for the estimated parameters, and the final regression model is determined for model prediction.
+
+Combining the model with Swiss data set, the model of this experiment is obtained, and the formula is as follows:
+
+$$ Fertility= \beta_0+\beta_1*Agriculture+\beta_2*Examination+\beta_3*Education+\beta_4*Catholic+\beta_5*Infant.Mortality+\epsilon $$
+
+Where $\beta_0$ represents the intercept and $\epsilon$ represents the residual, which is the synthesis of all other uncertainties.
+
+And then I will perform the linear regression analysis.
+
+# Results
+
+## Full model
+
+First I conducted linear regresson model considering all the variables, the results are as follows:
+```{r,echo=FALSE,include=FALSE}
+mod1<-lm(Fertility~.,data=df)
+summary(mod1)
+
+```
+
+
+
+```{r,echo=FALSE}
+variable<-c("(Intercept)","Agriculture","Examination","Education","Catholic","Infant.Mortality")
+estimate1<-c(66.91518,-0.17211,-0.25801,-0.87094,0.10412,1.07705)
+Pr1<-c("1.91e-07",0.01873,0.31546,"2.43e-05",0.00519,0.00734)
+table1<-tibble(variable,estimate1,Pr1)
+knitr::kable(table1,caption="Results of the full model",col.names = c("Variable","Estimate","Pr(>|t|)"))
+
+```
+
+For Agriculture, the regression coefficient is -0.17, indicating that when Examination, Education, Catholic and Infant.Mortality remain unchanged, for each additional unit of Agriculture, Fertility is reduced by 0.17 units.
+
+As can be seen from the results, at 95% confidence level, the regression coefficients of Agriculture, Education, Catholic and Infant.Mortality were significant, while the regression coefficients of Examination were not since p-value =0.32>0.05. This suggests that the linear correlation between Examination and Fertility is not significant when controlling other independent variables. The p-value under F test was 5.594e-10<0.05, which was significant.
+
+Coefficient of Determination ($R^2$) is an important statistic reflecting the goodness of fit of a model. It is the ratio of regression sum of squares to total peace. $R^2$ is between 0 and 1, and its value reflects the relative degree of regression contribution, that is, the percentage of total variation of dependent variables that can be explained by regression relationship. $R^2$ is the most commonly used indicator to evaluate the pros and disadvantages of regression models. The larger $R^2$ is, the better the fitting degree of the model is, and the closer the regression equation is to the reality. In this experiment, adjusted $R^2$=0.671, indicating a good degree of model fitting.
+
+The model needs to be tested before it can be determined. The multiple linear regression model has four assumptions: (a) there is a linear relationship between independent variable and dependent variable (numerical type). (b) Residuals are normally distributed. (c) The variance of residual is basically unchanged. (d) Residuals are independent from each other. A good multiple linear regression model should satisfy these four assumptions, so the next four assumptions will be tested.
+
+```{r,echo=FALSE,fig.cap="Residual plots of the full model",fig.width=7, fig.height=5}
+par(mfrow=c(2,2))
+plot(mod1)
+```
+
+From Figure 10, the full model of the dataset conforms to the model assumptions, but there are outliers that affect the regression results.
+
+Then I verified the kurtosis and skewness of the model, and the results were as follows:
+
+```{r,echo=FALSE,include=FALSE}
+gvmodel <- gvlma(mod1)
+summary(gvmodel)
+```
+
+```{r,echo=FALSE}
+term<-c("Global Stat","Skewness","Kurtosis","Link Function","Heteroscedasticity")
+Value<-c(0.91004315,0.04599045,0.10912890,0.08673959,0.66818422)
+p_value<-c(0.9231156,0.8301932,0.7411381,0.7683638,0.4136854)
+decision<-rep("Assumptions acceptable.",5)
+table2<-tibble(term,Value,p_value,decision)
+knitr::kable(table2,caption="check assumptions of the full model")
+```
+
+
+
+When P >0.05, the hypothesis can pass. As can be seen from the results above, the four hypotheses of the Swiss dataset are valid.
+
+
+## Model optimization
+
+From the summary of the full model, the regression coefficient of Examination was not significant for the model, and R2 of the model was 0.671, indicating that the fitting degree was not very good. Therefore, the model will be further adjusted and optimized.
+
+First I checked the Akaike Information Criterion for each variable.
+
+```{r,echo=FALSE}
+drop1(mod1)
+```
+From the results above, the AIC value of Examination is the smallest. According to the AIC minimum principle, Examination is removed and then I performed the new model. The results are shown as follows.
+
+```{r,echo=FALSE,include=FALSE}
+mod2<-update(mod1,.~.-Examination)
+summary(mod2)
+```
+
+```{r,echo=FALSE}
+variable2<-c("(Intercept)","Agriculture","Education","Catholic","Infant.Mortality")
+Estimate2<-c(62.10131,-0.15462,-0.98026,0.12467,1.07844)
+Pr2<-c("8.49e-08",0.02857,"5.14e-08","9.50e-05",0.00722)
+table3<-tibble(variable2,Estimate2,Pr2)
+knitr::kable(table3,caption = "Results of the reduced model",col.names = c("Variable","Estimate","Pr(>|t|)"))
+```
+
+
+It shows that the relationship between all variables and Fertility is all significant after removing Examination. The p-value of F test is 1.71e-10<0.05, indicating that the model is significant, and $R^2=0.671$ does not change. In addition, the variables can also be automatically selected according to the AIC minimum principle. 
+
+```{r,echo=FALSE,include=FALSE}
+step(mod1)
+```
+
+From the result of automatic selection, the model is the same as above. Although $R^2$ did not change after removing the variable, the regression coefficients of the respective variables became statistically significant.
+
+In addition, I will also check the assumptions of the reduced model.
+
+```{r,echo=FALSE,fig.cap="Residual plots of the reduced model",fig.width=7, fig.height=5}
+par(mfrow=c(2,2))
+plot(mod2)
+```
+
+
+```{r,echo=FALSE,include=FALSE}
+gvmodel2 <- gvlma(mod2)
+summary(gvmodel2)
+```
+
+
+```{r,echo=FALSE}
+Value2<-c(0.746401692,0.005895891,0.228597187,0.230479728,0.281428886)
+p_value2<-c(0.9454858,0.9387948,0.6325659,0.6311683,0.5957662)
+table4<-tibble(term,Value2,p_value2,decision)
+knitr::kable(table4,caption="check assumptions of the full model",col.names = c("","Value","p-value","Decision"))
+```
+
+
+The results above show that the reduced model conforms to the model assumptions.
+
+
+## Model comparison
+
+Then I used partial F test to compare the full model and the reduced model.
+
+```{r,echo=FALSE}
+anova(mod1,mod2)
+```
+
+According to the results of anova, p-value =0.3155>0.05, indicating that the test is not significant. Therefore, it can be concluded that Examination can be eliminated from the model.
+
+Moreover, I compared the two models by the AIC minimum principle.
+
+```{r,echo=FALSE}
+knitr::kable(AIC(mod1,mod2),caption = "AIC of two models")
+```
+
+Table 6 indicates that the reduced model has the smaller value of AIC. So I choose the reduced model as the final model.
+
+## Final model
+
+After the model fitting and comparison, I chose th reduced model as the final model. Its equation is :
+
+$$   Fertility=62.1-0.15*Agriculture-0.98*Education+0.12*Catholic+1.08*Infant.Mortality $$
+
+
+# Discussion
+
+## Conclusion
+
+In this experiment, the Swiss dataset containing the fertility rate and socio-economic index measurement data of 47 Provinces in Switzerland was used for statistical analysis and multiple linear regression. The results show that the fertility rate is mainly related to the proportion of men engaged in Agriculture, the Education, Catholic and Infant Mortality, and the regression equation is
+
+$$   Fertility=62.1-0.15*Agriculture-0.98*Education+0.12*Catholic+1.08*Infant.Mortality $$
+
+## Reflection
+
+The results are basically consistent with our common sense. It indicates that if we want to increase fertility, we have to first get people into work, then improve education system in order to raise people's knowledge level. In addition, we should improve health care so that babies can survive.
+
+On my point of view, it's of great importance to study this topic since many countries in the world have witnessed the decline of fertility rate and even negative population growth nowadays. The analysis of this problem is of great guiding significance to today's social research. We can learn from the past experience and formulate more reasonable policies to deal with negative population growth and aging population.
+
+## Weakness and limitations
+
+However, there are still some limitations in this experiment. For one thing, the dataset contains only 47 pieces of data, so that it may lead to some errors in the results. For another, from the result of the model, it shows that the adjusted R square isn't very close to 1 and the model assumptions are barely satisfactory. So if we have more knowledge about other models, we can take a try to see if there is a better fit.
+
+## What to proceed in the future
+
+First of all, in response to today's declining fertility rate, we should figure out the reason behind it. Whether it is the rising cost of childbearing or people's low awareness of childbearing, we should call for corresponding policies to change this situation. Otherwise, it will only lead to the aging of the social population structure, and eventually lead to the increasing pressure of young people, which will affect the vitality of the society and the country in the future.
+
+
+# Appendix
+
+## Datasheet
+
+### Motivation
+
+The dataset was created to provide data of standardized fertility measure and socio-economic indicators for each of 47 French-speaking provinces of Switzerland at about 1888. The dataset is available in Project “16P5”, pages 549–551 in Mosteller, F. and Tukey, J. W. (1977) Data Analysis and Regression: A Second Course in Statistics. Addison-Wesley, Reading Mass, indicating their source as “Data used by permission of Franice van de Walle. Office of Population Research, Princeton University, 1976. Unpublished data assembled under NICHD contract number No 1-HD-O-2077.”
+
+### Composition
+
+The variables in the dataset are as below:
+
+Fertility: common standardized fertility measure in 47 French-speaking provinces of Switzerland at about 1888.
+
+Agriculture: proportion of males involved in agriculture as occupation
+
+Examination:  proportion of draftees receiving highest mark on army examination
+
+Education: proportion of education beyond primary school for draftees.
+
+Catholic: proportion of catholic (as opposed to ‘protestant’)
+
+Infant.Mortality: live births who live less than 1 year
+
+All variables but ‘Fertility’ give proportions of the population. Here, all variables are scaled to [0, 100], where in the original, all but "Catholic" were scaled to [0, 1]. In addition, variables Examination and Education are averages for 1887, 1888 and 1889.
+
+There are 6 variables in total and 47 observations. And the dataset contains all possible instances.
+
+In addition, the dataset doesn’t contain data that, might be offensive, insulting, threatening, or might
+otherwise cause anxiety. The dataset also doesn’t contain data that might be considered confidential.
+Moreover, there is no errors, sources of noise, or redundancies in the dataset.
+
+## Results of the model
+
+In this part I will show the summary of the model, which is not shown in detail in the text.
+
+### Result of the full model
+
+```{r,echo=FALSE}
+mod1<-lm(Fertility~.,data=df)
+summary(mod1)
+
+```
+
+```{r,echo=FALSE}
+gvmodel <- gvlma(mod1)
+summary(gvmodel)
+```
+
+
+### Result of the reduced model
+
+```{r,echo=FALSE}
+mod2<-update(mod1,.~.-Examination)
+summary(mod2)
+gvmodel2 <- gvlma(mod2)
+summary(gvmodel2)
+```
+
+### Result of the automatic selection
+```{r,echo=FALSE}
+step(mod1)
+```
+
+\newpage
+
+# Reference
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
